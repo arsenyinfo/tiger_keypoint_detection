@@ -40,7 +40,7 @@ def parse_labels(img_dir, labels_path, approx_img_size=512):
         kpts = []
         _kpts = lbl['keypoints']
         for i in range(len(_kpts) // 3):
-            ky, kx, kv = _kpts[i * 3] * coeff, _kpts[i * 3 + 1] * coeff, _kpts[i * 3 + 2]
+            kx, ky, kv = _kpts[i * 3] * coeff, _kpts[i * 3 + 1] * coeff, _kpts[i * 3 + 2]
             if kv > 1:
                 valid_kpts += 1
             kpts.append((kx, ky, kv))
@@ -161,4 +161,3 @@ class TigerDataset(Dataset):
                             normalize_fn=normalize_fn,
                             transform_fn=transform_fn,
                             verbose=verbose)
-

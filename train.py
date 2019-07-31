@@ -180,7 +180,7 @@ class Trainer:
 
         self.scheduler.step(metrics=val_segm_loss + val_clf_loss, epoch=n_epoch)
 
-        metric = -val_segm_loss
+        metric = -train_segm_loss - train_clf_loss
         if metric > self.current_metric:
             self.current_metric = metric
             self.last_improvement = n_epoch
@@ -252,7 +252,8 @@ def fit(parallel=False, **kwargs):
                       train=train,
                       val=val,
                       clf_loss_fn=F.binary_cross_entropy_with_logits,
-                      segm_loss_fn=iou_continuous_loss_with_logits,
+                      # segm_loss_fn=iou_continuous_loss_with_logits,
+                      segm_loss_fn=F.binary_cross_entropy_with_logits,
                       work_dir=work_dir,
                       optimizer=optimizer,
                       scheduler=ReduceLROnPlateau(factor=.2, patience=5, optimizer=optimizer),
