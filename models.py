@@ -116,7 +116,8 @@ class TigerFPN(nn.Module):
         stacked = self.stacked_conv(stacked)
         lin_features = torch.mean(stacked, dim=(2, 3))
         logits = self.linear(lin_features)
-        stacked = self.upsample_final(stacked + self.conv_m0(m0))
+        # stacked = self.upsample_final(stacked + self.conv_m0(m0))
+        stacked = self.upsample_final(stacked)
         final = self.final_conv(stacked)
         return final, logits
 

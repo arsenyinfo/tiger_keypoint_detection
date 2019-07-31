@@ -252,13 +252,14 @@ def fit(parallel=False, **kwargs):
                       train=train,
                       val=val,
                       clf_loss_fn=F.binary_cross_entropy_with_logits,
-                      # segm_loss_fn=iou_continuous_loss_with_logits,
-                      segm_loss_fn=F.binary_cross_entropy_with_logits,
+                      segm_loss_fn=iou_continuous_loss_with_logits,
+                      # segm_loss_fn=F.binary_cross_entropy_with_logits,
                       work_dir=work_dir,
                       optimizer=optimizer,
-                      scheduler=ReduceLROnPlateau(factor=.2, patience=5, optimizer=optimizer),
+                      scheduler=ReduceLROnPlateau(factor=.2, patience=10, optimizer=optimizer),
                       device='cuda:0',
                       epochs=config['n_epochs'],
+                      early_stop=config['early_stop']
                       )
     trainer.fit(start_epoch=0)
 

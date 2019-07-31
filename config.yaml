@@ -5,26 +5,26 @@ train:
   labels_path: /home/arseny/datasets/atrw/keypoint_train.json
   size: &SIZE 256
   crop: center
-  corrupt:  &CORRUPT_HARD null
-#    - name: cutout
-#      prob: 0.5
-#      num_holes: 3
-#      max_h_size: 40
-#      max_w_size: 40
-#    - name: jpeg
-#      quality_lower: 50
-#      quality_upper: 85
-#    - name: motion_blur
-#    - name: median_blur
-#    - name: gamma
-#    - name: rgb_shift
-#    - name: hsv_shift
-#    - name: sharpen
-#    - name: shadow
-#    - name: fog
-#    - name: channel_shuffle
-#    - name: grid_distortion
-#    - name: gray
+  corrupt:  &CORRUPT_HARD
+    - name: cutout
+      prob: 0.5
+      num_holes: 3
+      max_h_size: 40
+      max_w_size: 40
+    - name: jpeg
+      quality_lower: 50
+      quality_upper: 85
+    - name: motion_blur
+    - name: median_blur
+    - name: gamma
+    - name: rgb_shift
+    - name: hsv_shift
+    - name: sharpen
+    - name: shadow
+    - name: fog
+    - name: channel_shuffle
+    - name: grid_distortion
+    - name: gray
 
 val:
   img_dir: /home/arseny/datasets/atrw/val
@@ -36,3 +36,4 @@ val:
 batch_size: 8
 lr: 0.0001
 n_epochs: 1000
+early_stop: 50

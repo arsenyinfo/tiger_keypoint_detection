@@ -21,11 +21,11 @@ def _read_img(x: str):
     return img
 
 
-def parse_labels(img_dir, labels_path, approx_img_size=512):
+def parse_labels(img_dir, labels_path, approx_img_size=384):
     with open(labels_path) as f:
         annotation = json.load(f)
-    images = annotation['images'][:8]
-    labels = annotation['annotations'][:8]
+    images = annotation['images']
+    labels = annotation['annotations']
 
     for img, lbl in tqdm(zip(images, labels), desc='preparing data', total=len(images)):
         assert img['id'] == lbl['image_id']
@@ -45,8 +45,8 @@ def parse_labels(img_dir, labels_path, approx_img_size=512):
                 valid_kpts += 1
             kpts.append((kx, ky, kv))
 
-        # if not valid_kpts:
-        #     continue
+        if not valid_kpts:
+            continue
         yield img, kpts
 
 
