@@ -1,4 +1,5 @@
 import json
+import os
 from glob import glob
 from typing import Sequence
 
@@ -56,8 +57,7 @@ class TigerTestDataset(Dataset):
         return {'img': img.astype('float32'),
                 'file': fpath,
                 'coeff': coeff,
-                'new_shape': new_shape,
-                'old_shape': old_shape}
+                'old_shape': np.array(old_shape)}
 
 
 def get_keypoints(heatmaps):
@@ -68,15 +68,41 @@ def get_keypoints(heatmaps):
     return np.array(res)
 
 
+def serialize(kpts, meta):
+    kpts[:, :2] /= meta['coeff'][0].item()
+    h, w = map(int, (meta['old_shape'][0][0], meta['old_shape'][0][1]))
+
+    kpts[:, 0] = np.clip(kpts[:, 0], 0, h)
+    kpts[:, 1] = np.clip(kpts[:, 1], 0, w)
+
+    anno = {}
+    anno['area'] = w * h
+    anno['bbox'] = [0, 0, w, h]
+    anno['image_id'] = anno['id'] = int(os.path.basename(meta['file'][0]).split('.')[0])
+    anno['category_id'] = 1
+    anno['iscrowd'] = 0
+    anno['num_keypoints'] = int(kpts[:, 2].sum())
+
+    flat_kpts = []
+    for i in range(kpts.shape[0]):
+        exists = kpts[i][2]
+        flat_kpts += [int(kpts[i][1]) if exists else 0,
+                      int(kpts[i][0]) if exists else 0,
+                      2 if exists else 0]
+    anno['keypoints'] = flat_kpts
+
+    return anno
+
+
 def make_annotation(heatmaps, flags, params: dict):
     kpts = get_keypoints(heatmaps)
     flags = flags.cpu().numpy() > .5
     kpts = np.hstack((kpts, flags.reshape(-1, 1)))
-    print(kpts.max(axis=0), params)
+    return serialize(kpts, params)
 
 
 def main(model_path: str = 'baseline/model.pt',
-         files_pattern='/home/arseny/datasets/atrw/test/*.jpg',
+         files_pattern='/home/arseny/datasets/atrw/val/*.jpg',
          output='result.json'):
     model = load(model_path)
     files = glob(files_pattern)
@@ -84,16 +110,17 @@ def main(model_path: str = 'baseline/model.pt',
     dataloader = DataLoader(dataset, drop_last=False, batch_size=1, num_workers=0, shuffle=False)
     dataloader = iter(dataloader)
 
-    result = []
+    res = []
 
     with torch.no_grad():
         for batch in tqdm(dataloader):
             imgs = batch.pop('img').to('cuda')
             heatmaps, flags = map(torch.sigmoid, model(imgs))
             annotation = make_annotation(heatmaps, flags, batch)
+            res.append(annotation)
 
     with open(output, 'w') as out:
-        json.dump(result, out)
+        json.dump(res, out)
 
 
 if __name__ == '__main__':

@@ -115,7 +115,8 @@ class Trainer:
             loss = loss_mask + loss_flags
             loss.backward()
 
-            self.write_from_batch(mask, pred_mask, inputs['img'][0].cpu().numpy(), 'train', n_epoch)
+            if np.random.rand() < 0.01:
+                self.write_from_batch(mask, pred_mask, inputs['img'][0].cpu().numpy(), 'train', n_epoch)
 
             segm_losses.append(loss_mask.item())
             clf_losses.append(loss_flags.item())
@@ -144,7 +145,8 @@ class Trainer:
                 mask = inputs['mask']
 
                 pred_mask, pred_flags = self.model(img)
-                self.write_from_batch(mask, pred_mask, inputs['img'][0].cpu().numpy(), 'val', n_epoch)
+                if np.random.rand() < 0.01:
+                    self.write_from_batch(mask, pred_mask, inputs['img'][0].cpu().numpy(), 'val', n_epoch)
 
                 loss_mask = self.segm_loss_fn(pred_mask, mask).mean()
                 loss_flags = self.clf_loss_fn(pred_flags, flags)
@@ -180,7 +182,7 @@ class Trainer:
 
         self.scheduler.step(metrics=val_segm_loss + val_clf_loss, epoch=n_epoch)
 
-        metric = -train_segm_loss - train_clf_loss
+        metric = -val_segm_loss - val_clf_loss
         if metric > self.current_metric:
             self.current_metric = metric
             self.last_improvement = n_epoch
@@ -253,7 +255,6 @@ def fit(parallel=False, **kwargs):
                       val=val,
                       clf_loss_fn=F.binary_cross_entropy_with_logits,
                       segm_loss_fn=iou_continuous_loss_with_logits,
-                      # segm_loss_fn=F.binary_cross_entropy_with_logits,
                       work_dir=work_dir,
                       optimizer=optimizer,
                       scheduler=ReduceLROnPlateau(factor=.2, patience=10, optimizer=optimizer),

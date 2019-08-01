@@ -36,4 +36,4 @@ val:
 batch_size: 8
 lr: 0.0001
 n_epochs: 1000
-early_stop: 50
+early_stop: 20

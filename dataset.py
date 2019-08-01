@@ -52,7 +52,7 @@ def parse_labels(img_dir, labels_path, approx_img_size=384):
 
 @lru_cache(maxsize=1)
 def get_kernel2d(shape: Collection[int]) -> np.ndarray:
-    size = (int(min(shape[:2]) * 0.2) // 2) * 2 + 1
+    size = (int(min(shape[:2]) * 0.1) // 2) * 2 + 1
     offset = size // 2
     kernel = cv2.getGaussianKernel(size, 0)
     kernel2d = kernel * kernel.T
