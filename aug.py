@@ -4,10 +4,7 @@ import albumentations as albu
 
 
 def get_transforms(size: int, crop='random'):
-    aug_fn = albu.OneOf([albu.HorizontalFlip(always_apply=True),
-                         albu.ShiftScaleRotate(always_apply=True, scale_limit=.5, rotate_limit=30),
-                         ],
-                        )
+    aug_fn = albu.ShiftScaleRotate(always_apply=True, scale_limit=.5, rotate_limit=30)
     crop_fn = {'random': albu.RandomCrop(size, size, always_apply=True),
                'center': albu.CenterCrop(size, size, always_apply=True)}[crop]
     pad = albu.PadIfNeeded(size, size)
