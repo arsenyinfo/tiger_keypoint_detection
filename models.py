@@ -1,31 +1,39 @@
 import torch
 from torch import nn
-from torchvision.models import densenet121
+from torchvision.models import densenet201
 
 
-class SepConvBlock(nn.Module):
-    def __init__(self, in_features, out_features, kernel_size=3, stride=1, dilation=1, res=False, bias=True,
+class MixSepConvBlock(nn.Module):
+    """
+    https://arxiv.org/abs/1907.09595
+    """
+
+    def __init__(self, in_features, out_features, stride=1, dilation=1, res=False, bias=True,
                  batch_norm_activation=True, activation=None):
         super().__init__()
-        assert kernel_size % 2, 'Odd kernel size is expected'
+        self.in_features = in_features
+        self.dw3 = nn.Conv2d(in_features // 4, in_features // 4, groups=in_features // 4, kernel_size=3,
+                             padding=1, stride=stride, dilation=dilation, bias=bias)
+        self.dw5 = nn.Conv2d(in_features // 2, in_features // 2, groups=in_features // 2, kernel_size=5,
+                             padding=2, stride=stride, dilation=dilation, bias=bias)
+        self.dw7 = nn.Conv2d(in_features // 4, in_features // 4, groups=in_features // 4, kernel_size=7,
+                             padding=3, stride=stride, dilation=dilation, bias=bias)
 
-        seq = [
-            nn.Conv2d(in_features, in_features, groups=in_features, kernel_size=kernel_size,
-                      padding=int((kernel_size - 1) / 2) * dilation, stride=stride,
-                      dilation=dilation, bias=bias),
-            nn.Conv2d(in_features, out_features, kernel_size=1, bias=False),
-        ]
+        seq = [nn.Conv2d(in_features, out_features, kernel_size=1, bias=False)]
         if batch_norm_activation:
             seq.extend([
                 nn.BatchNorm2d(out_features),
                 activation or nn.ReLU(inplace=True),
             ])
         self.conv = nn.Sequential(*seq)
-
         self.res = res
 
     def forward(self, x):
-        y = self.conv(x)
+        q = self.in_features // 4
+        x3 = self.dw3(x[:, :q, :, :])
+        x5 = self.dw5(x[:, q:3 * q, :, :])
+        x7 = self.dw7(x[:, 3 * q:, :, :])
+        y = self.conv(torch.cat([x3, x5, x7], dim=1))
         if self.res:
             return x + y
         return y
@@ -35,7 +43,7 @@ class CoreFPN(nn.Module):
 
     def __init__(self, num_filters=256, pretrained=True, **kwargs):
         super().__init__()
-        densenet = densenet121(pretrained=pretrained, **kwargs).features
+        densenet = densenet201(pretrained=pretrained, **kwargs).features
 
         self.features_enc0 = nn.Sequential(densenet.conv0,
                                            densenet.norm0,
@@ -48,7 +56,7 @@ class CoreFPN(nn.Module):
         self.features_tr1 = densenet.transition1
         self.features_tr2 = densenet.transition2
 
-        self.lateral3 = nn.Sequential(nn.Conv2d(1024, num_filters, kernel_size=1, bias=False),
+        self.lateral3 = nn.Sequential(nn.Conv2d(1792, num_filters, kernel_size=1, bias=False),
                                       nn.BatchNorm2d(num_filters),
                                       nn.ReLU(inplace=True))
         self.lateral2 = nn.Sequential(nn.Conv2d(512, num_filters, kernel_size=1, bias=False),
@@ -61,8 +69,8 @@ class CoreFPN(nn.Module):
         self.upsample_map3 = nn.UpsamplingNearest2d(scale_factor=2)
         self.upsample_map2 = nn.UpsamplingNearest2d(scale_factor=2)
 
-        self.td1 = SepConvBlock(num_filters, num_filters, kernel_size=3, res=True)
-        self.td2 = SepConvBlock(num_filters, num_filters, kernel_size=3, res=True)
+        self.td1 = MixSepConvBlock(num_filters, num_filters, res=True)
+        self.td2 = MixSepConvBlock(num_filters, num_filters, res=True)
 
     def forward(self, x):
         enc0 = self.features_enc0(x)
@@ -97,11 +105,11 @@ class TigerFPN(nn.Module):
         self.upsample_map1 = nn.UpsamplingNearest2d(scale_factor=2)
         self.upsample_final = nn.UpsamplingNearest2d(scale_factor=2)
         self.stacked_conv = nn.Sequential(
-            SepConvBlock(num_filters * 3, num_filters, kernel_size=3, res=False, bias=False),
-            SepConvBlock(num_filters, num_filters, kernel_size=3, res=True, bias=False),
-            SepConvBlock(num_filters, num_filters, kernel_size=3, res=True, bias=False)
+            MixSepConvBlock(num_filters * 3, num_filters, res=False, bias=False),
+            MixSepConvBlock(num_filters, num_filters, res=True, bias=False),
+            MixSepConvBlock(num_filters, num_filters, res=True, bias=False)
         )
-        self.conv_m0 = SepConvBlock(num_filters // 4, num_filters, kernel_size=3, res=False, bias=True)
+        self.conv_m0 = MixSepConvBlock(num_filters // 4, num_filters, res=False, bias=True)
         self.final_conv = nn.Conv2d(num_filters, num_out, kernel_size=1)
         self.linear = nn.Linear(num_filters, out_features=num_out, bias=True)
 
@@ -116,8 +124,7 @@ class TigerFPN(nn.Module):
         stacked = self.stacked_conv(stacked)
         lin_features = torch.mean(stacked, dim=(2, 3))
         logits = self.linear(lin_features)
-        # stacked = self.upsample_final(stacked + self.conv_m0(m0))
-        stacked = self.upsample_final(stacked)
+        stacked = self.upsample_final(stacked + self.conv_m0(m0))
         final = self.final_conv(stacked)
         return final, logits
 
