@@ -1,8 +1,8 @@
 name: baseline
 
 train:
-  img_dir: /home/arseny/datasets/atrw/train
-  labels_path: /home/arseny/datasets/atrw/keypoint_train.json
+  img_dir: /home/arseny/datasets/train
+  labels_path: /home/arseny/datasets/keypoint_train.json
   size: &SIZE 256
   crop: center
   corrupt:  &CORRUPT_HARD
@@ -27,8 +27,8 @@ train:
     - name: gray
 
 val:
-  img_dir: /home/arseny/datasets/atrw/val
-  labels_path: /home/arseny/datasets/atrw/keypoint_val.json
+  img_dir: /home/arseny/datasets/val
+  labels_path: /home/arseny/datasets/keypoint_val.json
   size: *SIZE
   crop: center
   corrupt:  &CORRUPT_SOFT null

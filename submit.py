@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import torch
 from albumentations import PadIfNeeded
+from fire import Fire
 from glog import logger
 from torch.serialization import load
 from torch.utils.data import DataLoader, Dataset
@@ -82,6 +83,7 @@ def serialize(kpts, meta):
     anno['category_id'] = 1
     anno['iscrowd'] = 0
     anno['num_keypoints'] = int(kpts[:, 2].sum())
+    anno['score'] = 1
 
     flat_kpts = []
     for i in range(kpts.shape[0]):
@@ -96,15 +98,18 @@ def serialize(kpts, meta):
 
 def make_annotation(heatmaps, flags, params: dict):
     kpts = get_keypoints(heatmaps)
-    flags = flags.cpu().numpy() > .5
+    flags = flags.cpu().numpy() > .05
     kpts = np.hstack((kpts, flags.reshape(-1, 1)))
     return serialize(kpts, params)
 
 
-def main(model_path: str = 'baseline/model.pt',
-         files_pattern='/home/arseny/datasets/atrw/val/*.jpg',
-         output='result.json'):
-    model = load(model_path)
+def main(output: str,
+         model_path: str = 'baseline/model.pt',
+         files_pattern='/home/arseny/datasets/test/*.jpg',
+         ):
+    model = load(model_path, map_location='cpu')
+    model, = model.children()
+    model = model.cuda()
     files = glob(files_pattern)
     dataset = TigerTestDataset(imgs=files)
     dataloader = DataLoader(dataset, drop_last=False, batch_size=1, num_workers=0, shuffle=False)
@@ -114,7 +119,7 @@ def main(model_path: str = 'baseline/model.pt',
 
     with torch.no_grad():
         for batch in tqdm(dataloader):
-            imgs = batch.pop('img').to('cuda')
+            imgs = batch.pop('img').cuda()
             heatmaps, flags = map(torch.sigmoid, model(imgs))
             annotation = make_annotation(heatmaps, flags, batch)
             res.append(annotation)
@@ -124,4 +129,4 @@ def main(model_path: str = 'baseline/model.pt',
 
 
 if __name__ == '__main__':
-    main()
+    Fire(main)
