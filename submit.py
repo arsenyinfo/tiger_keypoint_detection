@@ -76,14 +76,14 @@ def serialize(kpts, meta):
     kpts[:, 0] = np.clip(kpts[:, 0], 0, h)
     kpts[:, 1] = np.clip(kpts[:, 1], 0, w)
 
-    anno = {}
-    anno['area'] = w * h
-    anno['bbox'] = [0, 0, w, h]
-    anno['image_id'] = anno['id'] = int(os.path.basename(meta['file'][0]).split('.')[0])
-    anno['category_id'] = 1
-    anno['iscrowd'] = 0
-    anno['num_keypoints'] = int(kpts[:, 2].sum())
-    anno['score'] = 1
+    anno = {'area': w * h,
+            'bbox': [0, 0, w, h],
+            'image_id': int(os.path.basename(meta['file'][0]).split('.')[0]),
+            'id': int(os.path.basename(meta['file'][0]).split('.')[0]),
+            'category_id': 1,
+            'iscrowd': 0,
+            'num_keypoints': int(kpts[:, 2].sum()),
+            'score': 1}
 
     flat_kpts = []
     for i in range(kpts.shape[0]):
@@ -96,17 +96,19 @@ def serialize(kpts, meta):
     return anno
 
 
-def make_annotation(heatmaps, flags, params: dict):
+def make_annotation(heatmaps, flags, params: dict, threshold: float):
     kpts = get_keypoints(heatmaps)
-    flags = flags.cpu().numpy() > .05
+    flags = flags.cpu().numpy() > threshold
     kpts = np.hstack((kpts, flags.reshape(-1, 1)))
     return serialize(kpts, params)
 
 
 def main(output: str,
          model_path: str = 'baseline/model.pt',
-         files_pattern='/home/arseny/datasets/test/*.jpg',
+         dataset: str = 'val',
+         threshold: float = .5,
          ):
+    files_pattern = f'/home/arseny/datasets/{dataset}/*.jpg'
     model = load(model_path, map_location='cpu')
     model, = model.children()
     model = model.cuda()
@@ -121,7 +123,7 @@ def main(output: str,
         for batch in tqdm(dataloader):
             imgs = batch.pop('img').cuda()
             heatmaps, flags = map(torch.sigmoid, model(imgs))
-            annotation = make_annotation(heatmaps, flags, batch)
+            annotation = make_annotation(heatmaps, flags, batch, threshold=threshold)
             res.append(annotation)
 
     with open(output, 'w') as out:

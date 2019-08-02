@@ -11,8 +11,9 @@ from joblib import cpu_count
 from tensorboardX import SummaryWriter
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.parallel import DataParallel
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.serialization import save
+from torch.serialization import load, save
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -221,7 +222,7 @@ def make_dataloaders(train_cfg, val_cfg, batch_size, multiprocessing=False):
 
     train = DataLoader(train, drop_last=True, **shared_params)
     val = DataLoader(val, drop_last=False, **shared_params)
-    return train, train
+    return train, val
 
 
 def update_config(config, params):
@@ -246,8 +247,14 @@ def fit(parallel=False, **kwargs):
         yaml.dump(config, out)
 
     train, val = make_dataloaders(config['train'], config['val'], config['batch_size'], multiprocessing=parallel)
-    model = TigerFPN()
-    # model = DataParallel(model)
+
+    checkpoint = config.get('checkpoint')
+    if checkpoint is not None:
+        logger.info(f'Restoring model from {checkpoint}')
+        model = load(checkpoint)
+    else:
+        model = TigerFPN()
+        model = DataParallel(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
     trainer = Trainer(model=model,
@@ -262,7 +269,14 @@ def fit(parallel=False, **kwargs):
                       epochs=config['n_epochs'],
                       early_stop=config['early_stop']
                       )
-    trainer.fit(start_epoch=0)
+    epochs_used = trainer.fit(start_epoch=0)
+    logger.info(f'The model trained for {epochs_used}')
+
+    trainer.train.dataset.corrupt_fn = None
+    trainer.optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'] / 10)
+    trainer.checkpoint = os.path.join(trainer.work_dir, 'model_ft.pt')
+    epochs_used = trainer.fit(start_epoch=epochs_used)
+    logger.info(f'The model fine-tuned for {epochs_used}')
 
 
 if __name__ == '__main__':
