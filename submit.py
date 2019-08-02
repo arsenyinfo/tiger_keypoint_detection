@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from aug import get_normalize
-from metrics import subpixel_argmax2d
+from utils import subpixel_argmax2d
 
 
 class TigerTestDataset(Dataset):

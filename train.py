@@ -18,8 +18,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import TigerDataset
-from metrics import subpixel_argmax2d
 from models import TigerFPN
+from utils import subpixel_argmax2d
 
 
 def iou_continuous_loss_with_logits(y_pred, y_true):
@@ -98,7 +98,7 @@ class Trainer:
 
     def _train_epoch(self, n_epoch):
         self.model.train(True)
-        segm_losses, clf_losses, oks = [], [], []
+        segm_losses, clf_losses, scores = [], [], []
 
         train = tqdm(self.train, desc=f'training, epoch {n_epoch}')
         for i, inputs in enumerate(train):
@@ -122,19 +122,19 @@ class Trainer:
             segm_losses.append(loss_mask.item())
             clf_losses.append(loss_flags.item())
             metric = self.get_score(pred_mask, kpts)
-            oks.append(metric)
+            scores.append(metric)
 
             train.set_postfix(segm_loss=f'{loss_mask.item():.3f}',
                               clf_loss=f'{loss_flags.item():.3f}',
-                              oks=f'{metric:.3f}')
+                              score=f'{metric:.3f}')
             self.optimizer.step()
 
         train.close()
-        return segm_losses, clf_losses, oks
+        return segm_losses, clf_losses, scores
 
     def _val_epoch(self, n_epoch):
         self.model.train(False)
-        segm_losses, clf_losses, oks = [], [], []
+        segm_losses, clf_losses, scores = [], [], []
 
         val = tqdm(self.val, desc=f'validating, epoch {n_epoch}')
         with torch.no_grad():
@@ -154,31 +154,31 @@ class Trainer:
                 segm_losses.append(loss_mask.item())
                 clf_losses.append(loss_flags.item())
                 metric = self.get_score(pred_mask, kpts)
-                oks.append(metric)
+                scores.append(metric)
                 val.set_postfix(segm_loss=f'{loss_mask.item():.3f}',
                                 clf_loss=f'{loss_flags.item():.3f}',
-                                oks=f'{metric:.3f}')
+                                scores=f'{metric:.3f}')
         val.close()
-        return segm_losses, clf_losses, oks
+        return segm_losses, clf_losses, scores
 
     def fit_one_epoch(self, n_epoch):
-        segm_losses, clf_losses, oks = self._train_epoch(n_epoch)
-        val_segm_losses, val_clf_losses, val_oks = self._val_epoch(n_epoch)
+        segm_losses, clf_losses, scores = self._train_epoch(n_epoch)
+        val_segm_losses, val_clf_losses, val_scores = self._val_epoch(n_epoch)
 
         train_segm_loss = np.mean(segm_losses)
         val_segm_loss = np.mean(val_segm_losses)
         train_clf_loss = np.mean(clf_losses)
         val_clf_loss = np.mean(val_clf_losses)
-        oks = np.mean(oks)
-        val_oks = np.mean(val_oks)
+        scores = np.mean(scores)
+        val_scores = np.mean(val_scores)
 
         msg = f'Epoch {n_epoch}: ' \
               f'train segm loss is {train_segm_loss:.3f}, ' \
               f'train clf loss  {train_clf_loss:.3f}, ' \
-              f'train oks  {oks:.3f}, ' \
+              f'train score {scores:.3f}, ' \
               f'val segm loss is {val_segm_loss:.3f}, ' \
               f'val clf loss  {val_clf_loss:.3f}, ' \
-              f'val oks  {val_oks:.3f}, '
+              f'val score  {val_scores:.3f}, '
         logger.info(msg)
 
         self.scheduler.step(metrics=val_segm_loss + val_clf_loss, epoch=n_epoch)
@@ -191,22 +191,22 @@ class Trainer:
             logger.info(f'Best model has been saved at {n_epoch}, metric is {metric:.4f}')
         else:
             if self.last_improvement + self.early_stop < n_epoch:
-                return True, (train_segm_loss, train_clf_loss, oks,
-                              val_segm_loss, val_clf_loss, val_oks)
+                return True, (train_segm_loss, train_clf_loss, scores,
+                              val_segm_loss, val_clf_loss, val_scores)
 
-        return False, (train_segm_loss, train_clf_loss, oks,
-                       val_segm_loss, val_clf_loss, val_oks)
+        return False, (train_segm_loss, train_clf_loss, scores,
+                       val_segm_loss, val_clf_loss, val_scores)
 
     def fit(self, start_epoch: int):
         for i in range(self.epochs):
             finished, metrics = self.fit_one_epoch(i + start_epoch)
-            train_segm_loss, train_clf_loss, train_oks, val_segm_loss, val_clf_loss, val_oks = metrics
+            train_segm_loss, train_clf_loss, train_scores, val_segm_loss, val_clf_loss, val_scores = metrics
             for name, scalar in (('train_segm_loss', train_segm_loss),
                                  ('train_clf_loss', train_clf_loss),
-                                 ('train_oks', train_oks),
+                                 ('train_scores', train_scores),
                                  ('val_segm_loss', val_segm_loss),
                                  ('val_clf_loss', val_clf_loss),
-                                 ('val_oks', val_oks)
+                                 ('val_scores', val_scores)
                                  ):
                 self.tb_writer.add_scalar(name, scalar, global_step=i)
             if finished:

@@ -18,21 +18,3 @@ def subpixel_argmax2d(heatmap: np.ndarray,
     crop = heatmap[w1:w2, h1:h2]
     y, x = center_of_mass(crop)
     return w - window_size + y, h - window_size + x
-
-
-def oks(y_true: np.ndarray,
-        y_pred: np.ndarray,
-        input_size: int,
-        k=None):
-    y_true = np.array(y_true, dtype='float64')
-    y_pred = np.array(y_pred, dtype='float64')
-    scale = np.sqrt(np.sum(np.power(input_size, 2))) / 100
-    scales = np.array([scale for _ in range(y_true.shape[0])])
-
-    if k is None:
-        k = np.ones(y_true.shape[0])
-    else:
-        k = np.array(k)
-
-    distances = np.sum((y_true - y_pred) ** 2, axis=1)
-    return np.exp(-distances / (2 * (scales * k) ** 2))
