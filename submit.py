@@ -1,5 +1,6 @@
 import json
 import os
+from functools import partial
 from glob import glob
 from typing import Sequence
 
@@ -62,7 +63,7 @@ class TigerTestDataset(Dataset):
 
 
 def get_keypoints(heatmaps):
-    heatmaps = heatmaps[0].cpu().numpy()
+    heatmaps = heatmaps.cpu().numpy()
     res = []
     for heatmap in heatmaps:
         res.append(subpixel_argmax2d(heatmap))
@@ -103,15 +104,19 @@ def make_annotation(heatmaps, flags, params: dict, threshold: float):
     return serialize(kpts, params)
 
 
+def get_model(model_path):
+    model = load(model_path, map_location='cpu')
+    model, = model.children()
+    return model.cuda()
+
+
 def main(output: str,
-         model_path: str = 'baseline/model.pt',
+         model_paths: str = 'baseline/model.pt',
          dataset: str = 'val',
          threshold: float = .5,
          ):
     files_pattern = f'/home/arseny/datasets/{dataset}/*.jpg'
-    model = load(model_path, map_location='cpu')
-    model, = model.children()
-    model = model.cuda()
+    models = [get_model(x) for x in model_paths.split(',')]
     files = glob(files_pattern)
     dataset = TigerTestDataset(imgs=files)
     dataloader = DataLoader(dataset, drop_last=False, batch_size=1, num_workers=0, shuffle=False)
@@ -122,7 +127,14 @@ def main(output: str,
     with torch.no_grad():
         for batch in tqdm(dataloader):
             imgs = batch.pop('img').cuda()
-            heatmaps, flags = map(torch.sigmoid, model(imgs))
+
+            heatmaps, flags = [], []
+            for model in models:
+                h, f = map(torch.sigmoid, model(imgs))
+                heatmaps.append(h)
+                flags.append(f)
+            heatmaps, flags = map(lambda x: torch.cat(x, dim=0).mean(dim=0),
+                                  (heatmaps, flags))
             annotation = make_annotation(heatmaps, flags, batch, threshold=threshold)
             res.append(annotation)
 

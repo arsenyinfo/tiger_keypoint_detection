@@ -1,4 +1,4 @@
-name: baseline
+name: d201_filtered
 
 train:
   img_dir: /home/arseny/datasets/train
@@ -37,3 +37,4 @@ batch_size: 8
 lr: 0.0001
 n_epochs: 1000
 early_stop: 20
+finetune: false

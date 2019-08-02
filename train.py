@@ -83,7 +83,7 @@ class Trainer:
                     continue
                 y, x = coord
                 res.append(np.abs(kpt - np.array([x, y])))
-        return np.mean(res)
+        return np.median(res)
 
     def write_from_batch(self, mask, pred_mask, img, tag: str, n: int):
         pred_mask = torch.sigmoid(pred_mask[0]).detach().cpu().numpy().max(axis=0)
@@ -272,11 +272,13 @@ def fit(parallel=False, **kwargs):
     epochs_used = trainer.fit(start_epoch=0)
     logger.info(f'The model trained for {epochs_used}')
 
-    trainer.train.dataset.corrupt_fn = None
-    trainer.optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'] / 10)
-    trainer.checkpoint = os.path.join(trainer.work_dir, 'model_ft.pt')
-    epochs_used = trainer.fit(start_epoch=epochs_used)
-    logger.info(f'The model fine-tuned for {epochs_used}')
+    if config['finetune']:
+        trainer.train.dataset.corrupt_fn = None
+        trainer.optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'] / 10)
+        trainer.checkpoint = os.path.join(trainer.work_dir, 'model_ft.pt')
+        trainer.last_improvement = epochs_used
+        epochs_used = trainer.fit(start_epoch=epochs_used)
+        logger.info(f'The model fine-tuned for {epochs_used}')
 
 
 if __name__ == '__main__':
