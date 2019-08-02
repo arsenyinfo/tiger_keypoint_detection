@@ -1,6 +1,5 @@
 import json
 import os
-from functools import partial
 from glob import glob
 from typing import Sequence
 
