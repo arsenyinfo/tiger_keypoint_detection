@@ -24,7 +24,6 @@ class TigerTestDataset(Dataset):
         self.imgs = imgs
         self.normalize_fn = get_normalize()
         self.approx_img_size = 384
-        self.pad_params =
         logger.info(f'Dataset has been created with {len(self.imgs)} samples')
 
     def _preprocess(self, img):
