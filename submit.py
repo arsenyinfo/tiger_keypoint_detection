@@ -24,7 +24,7 @@ class TigerTestDataset(Dataset):
         self.imgs = imgs
         self.normalize_fn = get_normalize()
         self.approx_img_size = 384
-        self.pad_params = dict(border_mode=cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        self.pad_params =
         logger.info(f'Dataset has been created with {len(self.imgs)} samples')
 
     def _preprocess(self, img):
@@ -49,10 +49,11 @@ class TigerTestDataset(Dataset):
         new_shape = img.shape
         h, w, _ = new_shape
 
-        block_size = 16
-        pad = PadIfNeeded(min_height=(h // block_size + 1) * block_size, min_width=(w // block_size + 1) * block_size,
-                          **self.pad_params)
-        img = pad(image=img)['image']
+        block_size = 32
+        min_height = (h // block_size + 1) * block_size
+        min_width = (w // block_size + 1) * block_size
+        img = np.pad(img, ((0, min_height - h), (0, min_width - w), (0, 0)),
+                     mode='constant', constant_values=0)
 
         img = self._preprocess(img)
         return {'img': img.astype('float32'),
@@ -114,7 +115,7 @@ def main(output: str,
          dataset: str = 'val',
          threshold: float = .5,
          ):
-    files_pattern = f'/home/arseny/datasets/{dataset}/*.jpg'
+    files_pattern = f'/home/arseny/datasets/atrw/{dataset}/*.jpg'
     models = [get_model(x) for x in model_paths.split(',')]
     files = glob(files_pattern)
     dataset = TigerTestDataset(imgs=files)
