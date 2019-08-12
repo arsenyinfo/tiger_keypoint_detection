@@ -7,4 +7,4 @@ Some facts:
 - the solution is mostly inspired FPN encoder-decoder architecture; 
 - Densenet201 feature extractor is used; 
 - the training took ~2h 30m using 2x1080Ti setup;
-- private LB mAP will be updated later.
+- public LB mAP is ~0.74 although there was a stupid padding issue https://github.com/arsenyinfo/tiger_keypoint_detection/commit/8943d061a995b622c802c8b0080d136a499c9cae :( 
