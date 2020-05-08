@@ -1,6 +1,6 @@
 # Tiger Keypoint Detection
 
-This pipeline was been coded for the [Computer Vision for Wildlife Conservation (CVWC) challenge](https://cvwc2019.github.io/challenge.html).
+This pipeline has been coded for the [Computer Vision for Wildlife Conservation (CVWC) challenge](https://cvwc2019.github.io/challenge.html).
 
 Some facts: 
 - inference speed is ~18.5 frames/sec on a single 1080Ti, given the resized image and including postprocessing; 
